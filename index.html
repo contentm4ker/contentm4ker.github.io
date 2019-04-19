@@ -1,0 +1,136 @@
+<html>
+<head>
+  <title>Тестовое задание Oauth2 Vk Api</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+  <script src="https://vk.com/js/api/openapi.js?160" type="text/javascript"></script>
+
+  <script type="text/javascript">
+
+    $(document).ready(function() {
+
+      var VK_APP_ID = 6951132
+
+      var user;
+
+      $('#users-table-container').css('display', 'none');
+
+      // Open Api init
+      VK.init({
+        apiId: VK_APP_ID
+      });
+
+      changeButtonActionDependOnAuthStatus();
+
+      if (localStorage['VK_SESSION_USER']) {
+        fillUserFriendsTable(localStorage['VK_SESSION_USER']);
+      }
+
+      VK.Observer.subscribe('auth.login', function(event) {
+        if (event.session.user) {
+          localStorage['VK_SESSION_USER'] = event.session.user.id;
+          localStorage['VK_SESSION_STATUS'] = event.status;
+          fillUserFriendsTable(event.session.user.id);
+          changeButtonActionDependOnAuthStatus();
+        }
+      });
+
+      VK.Observer.subscribe('auth.logout', function(event) {
+        localStorage['VK_SESSION_USER'] = null;
+        localStorage['VK_SESSION_STATUS'] = event.status;
+        changeButtonActionDependOnAuthStatus();
+      });
+
+
+      function fillUserFriendsTable(user_id) {
+        VK.Api.call(
+          'friends.get',
+          {
+            user_id: user_id, 
+            order: 'hints',
+            fields: 'domain',
+            count: 5,
+            version: '5.95'
+          },
+          function(r) {
+            if(r.response) {
+              var userFriends = r.response;
+              $("#users-table tbody tr").empty()
+              for (var i = 0; i < userFriends.length; i++) {
+                $('#users-table tbody').append(`
+                  <tr class="w3-hover-blue">
+                  <td>${userFriends[i]['first_name']}</td>
+                  <td>${userFriends[i]['last_name']}</td>
+                  <td>${userFriends[i]['online'] ? 'Да' : 'Нет'}</td>
+                  <td><a href="${'https://vk.com/' + userFriends[i]['domain']}">${'https://vk.com/' + userFriends[i]['domain']}</a></td>
+                  </tr>
+                  `);
+              }
+            }
+        });
+      }
+
+      function changeButtonActionDependOnAuthStatus() {
+        if (localStorage['VK_SESSION_STATUS'] === 'connected') {
+          $('#users-table-container').css('display', 'block');
+          $('#info-text').text(`Добро пожаловать, 
+            ${localStorage['USER_NAME']}!`);
+          $("#auth-btn").html('Выйти');
+          $('#auth-btn').unbind('click');
+          $('#auth-btn').on('click', function() {
+            VK.Auth.logout(function(response) {
+              if (!response.session) {
+              } 
+            });
+          });
+        } else {
+          $('#users-table-container').css('display', 'none');
+          $('#info-text').text('Авторизация ВКонтакте');
+          $("#auth-btn").html('Авторизоваться');
+          $('#auth-btn').unbind('click');
+          $('#auth-btn').on('click', function() {
+            VK.Auth.login(function(response) {
+              if (response.session) {
+                /* user successfully auth */
+                user = response.session.user;
+                localStorage['USER_NAME'] = user.last_name + ' ' + user.first_name;
+              } 
+            });
+          });
+        }
+      }
+
+    });
+
+  </script>
+
+</head>
+
+<body style="background-color: #eeeff0">
+
+  <div id="auth-panel" class="w3-container w3-display-topmiddle" style="width: 45%">
+    <div class="w3-card-4">
+      <header class="w3-container" style="background-color:#4977aa; color:white; text-align: center">
+        <h3 id="info-text"></h3>
+      </header>
+      <button id="auth-btn" class="w3-button w3-block w3-blue w3-hover-white"></button>
+    </div>
+  </div>
+
+  <div id="users-table-container" class="w3-container w3-display-middle">
+    <table id="users-table" class="w3-table-all">
+      <thead>
+        <tr style="background-color:#4977aa; color:white;">
+          <th>Имя</th>
+          <th>Фамилия</th>
+          <th>Онлайн</th>
+          <th>Адрес</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>
